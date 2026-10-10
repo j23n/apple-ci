@@ -48,6 +48,10 @@ on:
         description: The cache's key; change it to refresh the cache.
         type: string
         default: ""
+      cache-hash-files:
+        description: Files whose hash ends the cache's key, so a change to them refreshes it.
+        type: string
+        default: ""
       timeout-minutes:
         type: number
         default: 30
@@ -81,7 +85,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ inputs.cache-path }}
-          key: ${{ inputs.cache-key }}
+          key: ${{ inputs.cache-key }}-${{ inputs.cache-hash-files != '' && hashFiles(inputs.cache-hash-files) || 'none' }}
       - name: Is the app's apple.mk current?
         working-directory: ${{ inputs.working-directory }}
         run: |

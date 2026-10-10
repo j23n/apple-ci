@@ -70,7 +70,7 @@ jobs:
 | `apt-packages` | none |
 | `uv` | `false` |
 | `lfs` | `false` |
-| `cache-path` / `cache-key` | none |
+| `cache-path` / `cache-key` / `cache-hash-files` | none |
 | `name` | `Linux` |
 
 **`macos.yml`** runs `make ci-macos`, after installing XcodeGen with Homebrew and selecting the Xcode.

@@ -12,6 +12,8 @@
 #   SWIFT_PACKAGES          package folders whose tests `make swift-test` runs, in order
 #   PROJECT_INPUTS          more files that should regenerate the project (xcconfigs)
 #   PROJECT_PREREQUISITES   targets to make before generating it (a built resource)
+#   APP_PREREQUISITES       targets to make before every app build and test (the same, when
+#                           the project can outlive the resource)
 #   TEST_APP_PLATFORMS      where `make test-app` runs the app's tests: ios, mac, both, or none
 #   TEST_APP_FLAGS          more xcodebuild flags for them (-skip-testing:…, -only-testing:…)
 #   IOS_SIMULATOR           the simulator `make test-app` uses (default iPhone 17)
@@ -29,6 +31,7 @@ XCODEBUILD_FLAGS ?= -quiet
 SWIFT_PACKAGES ?=
 PROJECT_INPUTS ?=
 PROJECT_PREREQUISITES ?=
+APP_PREREQUISITES ?=
 TEST_APP_PLATFORMS ?= $(firstword $(PLATFORMS))
 TEST_APP_FLAGS ?=
 
@@ -58,18 +61,18 @@ $(XCODEPROJ)/project.pbxproj: $(PROJECT_SPEC) $(PROJECT_INPUTS) | $(PROJECT_PRER
 
 build: $(addprefix build-,$(PLATFORMS))
 
-build-ios: project
+build-ios: project $(APP_PREREQUISITES)
 	$(XCODE) -destination '$(IOS_BUILD_DESTINATION)' build $(UNSIGNED)
 
-build-mac: project
+build-mac: project $(APP_PREREQUISITES)
 	$(XCODE) -destination '$(MAC_DESTINATION)' build $(UNSIGNED)
 
 test-app: $(addprefix test-app-,$(TEST_APP_PLATFORMS))
 
-test-app-ios: project
+test-app-ios: project $(APP_PREREQUISITES)
 	$(XCODE) -destination '$(IOS_TEST_DESTINATION)' $(TEST_APP_FLAGS) test $(UNSIGNED)
 
-test-app-mac: project
+test-app-mac: project $(APP_PREREQUISITES)
 	$(XCODE) -destination '$(MAC_DESTINATION)' $(TEST_APP_FLAGS) test $(SIGNED_LOCALLY)
 
 test-app-none:
