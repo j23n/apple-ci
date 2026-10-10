@@ -1,0 +1,39 @@
+# What the hosted macOS runners have: Xcode versions, their Swift, SDKs and simulator runtimes.
+# Run it by hand (or on a change here) before moving the shared workflows to a new Xcode.
+name: Runner inventory
+
+on:
+  workflow_dispatch:
+  push:
+    paths: [.github/workflows/runner-inventory.yml]
+
+jobs:
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-26, macos-15]
+    name: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Xcode versions
+        run: |
+          sw_vers
+          echo "Selected: $(xcode-select -p)"
+          for app in /Applications/Xcode*.app; do
+            [ -L "$app" ] && { echo "$app -> $(readlink "$app")"; continue; }
+            version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist" 2>/dev/null)
+            swift=$(DEVELOPER_DIR="$app/Contents/Developer" xcrun swift --version 2>/dev/null | head -1)
+            echo "$app  $version  $swift"
+          done
+      - name: SDKs
+        run: xcodebuild -showsdks
+      - name: Simulator runtimes and iPhones
+        run: |
+          xcrun simctl list runtimes
+          xcrun simctl list devices available | grep -E 'iPhone|iPad|==' | head -40
+      - name: Tools
+        run: |
+          for tool in xcodegen swiftlint swiftformat git-lfs uv python3 ffmpeg; do
+            printf '%-12s ' "$tool"; command -v "$tool" >/dev/null && "$tool" --version 2>&1 | head -1 || echo missing
+          done
