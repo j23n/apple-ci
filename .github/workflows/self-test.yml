@@ -69,3 +69,18 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - run: diff -u make/apple.mk fixture/.apple-ci/apple.mk
+
+  default-goal:
+    name: make alone runs the app's first rule (${{ matrix.os }})
+    strategy:
+      matrix:
+        # macOS's make is GNU Make 3.81, the oldest the rules support.
+        os: [ubuntu-latest, macos-26]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - run: make --version | head -1
+      - name: The fixture's help, not apple.mk's project
+        run: |
+          make -s -C fixture > "$RUNNER_TEMP/default-goal.txt"
+          head -1 "$RUNNER_TEMP/default-goal.txt" | grep '^make test'
