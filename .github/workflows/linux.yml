@@ -1,5 +1,6 @@
 # The Linux half of an app's CI: Swift in a pinned container, then one command, usually
 # `make ci-linux` (README.md, "The build contract").
+# It runs once per commit: on pushes, not again on the pull request (README.md, "When CI runs").
 #
 #   jobs:
 #     linux:
@@ -59,6 +60,9 @@ on:
 jobs:
   linux:
     name: ${{ inputs.name }}
+    # Runs on pushes, manual runs and pull requests from forks. A pull request from a branch of the
+    # app's repository skips it, starting no runner: the push to that branch ran it on the same commit.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout-minutes }}
     container: public.ecr.aws/docker/library/swift:${{ inputs.swift }}-noble

@@ -7,6 +7,8 @@
 #       uses: j23n/apple-ci/.github/workflows/macos.yml@main
 #
 # Builds are unsigned (CODE_SIGNING_ALLOWED=NO) or signed to run locally: the Makefile decides.
+# It runs on pull requests, manual runs and the default branch, not on other pushes (README.md,
+# "When CI runs").
 name: macOS
 
 on:
@@ -71,6 +73,9 @@ on:
 jobs:
   macos:
     name: ${{ inputs.name }}
+    # Runs on pull requests, manual runs and pushes to the default branch. A push to another branch
+    # skips it, starting no runner: its pull request runs it, so each commit runs it once.
+    if: github.event_name != 'push' || github.ref_name == github.event.repository.default_branch
     runs-on: ${{ inputs.runner }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     env:

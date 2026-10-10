@@ -91,6 +91,15 @@ jobs:
 
 A slower job, such as UI tests with screenshots, is a second `macos.yml` call with its own `run` and artifact.
 
+**When CI runs:** each job runs once per commit, and macOS only where it's worth it. An app's `ci.yml` triggers on `push`, `pull_request` and `workflow_dispatch`, and the workflows decide:
+
+| | Push to `main` | Push to another branch | Pull request from a branch here | Pull request from a fork | Run by hand |
+| --- | --- | --- | --- | --- | --- |
+| `linux.yml` | runs | runs | skipped: the push ran it | runs | runs |
+| `macos.yml` | runs | skipped: the pull request runs it | runs | runs | runs |
+
+So a work branch gets Linux on every push, the Mac once it has a pull request, and a branch without one can have the Mac by hand (Actions › CI › Run workflow). A skipped job starts no runner. The pull request's merge result isn't tested on Linux, only its branch's last commit.
+
 **Versions:**
 - Linux: Swift 6.3, the Swift of the macOS runner's default Xcode.
 - macOS: the `macos-26` runner's default Xcode, 26.6 in October 2026.
@@ -98,7 +107,7 @@ A slower job, such as UI tests with screenshots, is a second `macos.yml` call wi
 - An app that needs an Xcode the hosted runners don't have yet, such as one built against the iOS 27 SDK, can ask for it with `xcode-missing: skip`. The job then passes with a warning and a note in its summary instead of running, and runs by itself once the runners have that Xcode.
 - Moving every app to a new Xcode or Swift is a change of the defaults here.
 
-**Cost:** the hosted runners are free for public repositories. A private one spends its plan's included minutes (2,000 a month on GitHub Free), where a macOS minute counts ten times and every job is rounded up to a whole minute, so a macOS job that only finds its Xcode missing still costs ten minutes. In a private repository, run the Linux job on every push and the macOS jobs only where they're worth it (pushes to `main`, pull requests), and turn a job off with an `if:` on the calling job, which starts no runner, rather than with `xcode-missing: skip`, which does. maestro's CI does both, with a repository variable (`HOSTED_XCODE_27`) for the Xcode it waits for.
+**Cost:** the hosted runners are free for public repositories. A private one spends its plan's included minutes (2,000 a month on GitHub Free), where a macOS minute counts ten times and every job is rounded up to a whole minute, so a macOS job that only finds its Xcode missing still costs ten minutes. The workflows already run macOS only where it's worth it ("When CI runs"). To turn a job off, use an `if:` on the calling job, which starts no runner, rather than `xcode-missing: skip`, which does: maestro and omnomnom gate their Xcode 27 jobs on a repository variable, `HOSTED_XCODE_27`, until the runners have it.
 
 **Self-test:** apple-ci's own CI runs both workflows on the fixture and tests the Xcode selector, so a change here is checked before the apps pick it up from `main`.
 
