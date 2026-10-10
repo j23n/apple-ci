@@ -1,0 +1,94 @@
+# The Linux half of an app's CI: Swift in a pinned container, then one command, usually
+# `make ci-linux` (README.md, "The build contract").
+#
+#   jobs:
+#     linux:
+#       uses: j23n/apple-ci/.github/workflows/linux.yml@main
+#
+# The image is the official `swift:<version>-noble`, pulled from Amazon ECR Public's mirror of
+# Docker Hub's official images: Docker Hub's pull limit for GitHub's runners failed CI before.
+name: Linux
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: The job's name.
+        type: string
+        default: Linux
+      swift:
+        description: The Swift version of the container (`swift:<version>-noble`).
+        type: string
+        default: "6.3"
+      run:
+        description: The command to run.
+        type: string
+        default: make ci-linux
+      working-directory:
+        description: Where to run it.
+        type: string
+        default: .
+      apt-packages:
+        description: More Ubuntu packages to install (make, git and curl always are).
+        type: string
+        default: ""
+      uv:
+        description: Install uv, for Python tools.
+        type: boolean
+        default: false
+      lfs:
+        description: Check out Git LFS files.
+        type: boolean
+        default: false
+      cache-path:
+        description: A path to cache between runs, such as downloaded reference data.
+        type: string
+        default: ""
+      cache-key:
+        description: The cache's key; change it to refresh the cache.
+        type: string
+        default: ""
+      timeout-minutes:
+        type: number
+        default: 30
+
+jobs:
+  linux:
+    name: ${{ inputs.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    container: public.ecr.aws/docker/library/swift:${{ inputs.swift }}-noble
+    steps:
+      - name: Tools
+        env:
+          PACKAGES: ${{ inputs.apt-packages }}
+          LFS: ${{ inputs.lfs }}
+        run: |
+          extra="$PACKAGES"
+          [ "$LFS" = true ] && extra="$extra git-lfs"
+          apt-get update -qq
+          # shellcheck disable=SC2086
+          apt-get install -y -qq --no-install-recommends make git curl ca-certificates $extra
+          swift --version
+      - uses: actions/checkout@v5
+        with:
+          lfs: ${{ inputs.lfs }}
+      - name: uv
+        if: inputs.uv
+        uses: astral-sh/setup-uv@v6
+      - name: Cache
+        if: inputs.cache-path != ''
+        uses: actions/cache@v4
+        with:
+          path: ${{ inputs.cache-path }}
+          key: ${{ inputs.cache-key }}
+      - name: Is the app's apple.mk current?
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          [ -f .apple-ci/apple.mk ] || exit 0
+          if ! curl -fsSL https://raw.githubusercontent.com/j23n/apple-ci/main/make/apple.mk | diff -q - .apple-ci/apple.mk >/dev/null; then
+            echo "::warning::.apple-ci/apple.mk differs from j23n/apple-ci's make/apple.mk: run make update-apple-ci"
+          fi
+      - name: ${{ inputs.run }}
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.run }}

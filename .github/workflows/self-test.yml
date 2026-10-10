@@ -1,0 +1,52 @@
+# apple-ci tests itself: the shared workflows run on the fixture (an iPhone, iPad and Mac app with
+# a package), and the Xcode selector picks a version and refuses one the runner doesn't have.
+name: Self-test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: self-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    uses: ./.github/workflows/linux.yml
+    with:
+      name: Linux · fixture
+      working-directory: fixture
+
+  macos:
+    uses: ./.github/workflows/macos.yml
+    with:
+      name: macOS · fixture
+      working-directory: fixture
+
+  xcode-selector:
+    name: Xcode selector
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - name: A version prefix picks the newest match
+        id: newest
+        uses: ./actions/select-xcode
+        with:
+          version: "26"
+      - name: Check it
+        env:
+          VERSION: ${{ steps.newest.outputs.version }}
+        run: |
+          echo "Selected $VERSION"
+          case "$VERSION" in 26.*) ;; *) echo "expected a 26.x"; exit 1 ;; esac
+      - name: A missing version fails
+        run: |
+          if python3 actions/select-xcode/select_xcode.py 99; then echo "Xcode 99 shouldn't exist"; exit 1; fi
+
+  apple-mk:
+    name: Fixture's apple.mk is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: diff -u make/apple.mk fixture/.apple-ci/apple.mk

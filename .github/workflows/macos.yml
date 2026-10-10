@@ -1,0 +1,101 @@
+# The macOS half of an app's CI: an Xcode, XcodeGen, then one command, usually `make ci-macos`
+# (README.md, "The build contract"). Call it once more for slower jobs such as UI tests and
+# screenshots, with their own command and an artifact to keep.
+#
+#   jobs:
+#     macos:
+#       uses: j23n/apple-ci/.github/workflows/macos.yml@main
+#
+# Builds are unsigned (CODE_SIGNING_ALLOWED=NO) or signed to run locally: the Makefile decides.
+name: macOS
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: The job's name.
+        type: string
+        default: macOS
+      runner:
+        description: The GitHub-hosted macOS image.
+        type: string
+        default: macos-26
+      xcode:
+        description: >-
+          An Xcode version or its prefix ("26.6", "26"), or "default" for the runner's own. The
+          job fails, listing what's installed, when the runner doesn't have it.
+        type: string
+        default: default
+      run:
+        description: The command to run.
+        type: string
+        default: make ci-macos
+      working-directory:
+        description: Where to run it.
+        type: string
+        default: .
+      brew:
+        description: Homebrew formulae to install.
+        type: string
+        default: xcodegen
+      uv:
+        description: Install uv, for Python tools.
+        type: boolean
+        default: false
+      lfs:
+        description: Check out Git LFS files.
+        type: boolean
+        default: false
+      ui-automation:
+        description: Let UI tests drive the Mac without asking.
+        type: boolean
+        default: false
+      artifact-name:
+        description: Upload `artifact-path` under this name, whether the command passed or not.
+        type: string
+        default: ""
+      artifact-path:
+        type: string
+        default: ""
+      timeout-minutes:
+        type: number
+        default: 60
+
+jobs:
+  macos:
+    name: ${{ inputs.name }}
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: ${{ inputs.lfs }}
+      - name: Xcode
+        uses: j23n/apple-ci/actions/select-xcode@main
+        with:
+          version: ${{ inputs.xcode }}
+      - name: Tools
+        if: inputs.brew != ''
+        env:
+          FORMULAE: ${{ inputs.brew }}
+        # shellcheck disable=SC2086
+        run: brew install $FORMULAE
+      - name: uv
+        if: inputs.uv
+        uses: astral-sh/setup-uv@v6
+      - name: Let UI tests drive the Mac
+        if: inputs.ui-automation
+        run: sudo automationmodetool enable-automationmode-without-authentication || true
+      - name: ${{ inputs.run }}
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.run }}
+      - name: Keep ${{ inputs.artifact-name }}
+        if: (success() || failure()) && inputs.artifact-name != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ inputs.artifact-path }}
+          if-no-files-found: warn

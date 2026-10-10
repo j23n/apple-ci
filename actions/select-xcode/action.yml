@@ -1,0 +1,23 @@
+name: Select Xcode
+description: >-
+  Selects an installed Xcode by version ("26.6", "26", or "default" for the runner's own choice)
+  and prints it with its Swift. When none matches, it fails and lists the installed ones.
+inputs:
+  version:
+    description: An Xcode version or its prefix ("26.6", "26"), or "default".
+    default: default
+outputs:
+  path:
+    description: The selected Xcode's path.
+    value: ${{ steps.select.outputs.path }}
+  version:
+    description: The selected Xcode's version.
+    value: ${{ steps.select.outputs.version }}
+runs:
+  using: composite
+  steps:
+    - id: select
+      shell: bash
+      env:
+        WANTED: ${{ inputs.version }}
+      run: python3 "${{ github.action_path }}/select_xcode.py" "$WANTED"

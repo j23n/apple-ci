@@ -1,0 +1,22 @@
+# An app's CI: the shared Linux and macOS jobs (j23n/apple-ci), which run `make ci-linux` and
+# `make ci-macos`. Copy to .github/workflows/ci.yml and set what differs.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request cancels the run in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    uses: j23n/apple-ci/.github/workflows/linux.yml@main
+
+  macos:
+    uses: j23n/apple-ci/.github/workflows/macos.yml@main
