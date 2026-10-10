@@ -18,7 +18,7 @@ The build and CI setup j23n's Apple apps share: [caniretireyet](https://github.c
 | `make project` | Generates the Xcode project from the spec when the spec is newer | Mac |
 | `make test` | The fast tests: the Swift packages and the app's tools | Mac and Linux |
 | `make build` | The app for every platform it runs on, unsigned (`build-ios`, `build-mac`) | Mac |
-| `make test-app` | The app's own tests in the iOS Simulator or on the Mac | Mac |
+| `make test-app` | The app's own tests in the iOS Simulator or on the Mac; when one fails, the failures with their messages (from the result bundle in `.build/TestResults`, since `-quiet` names the failing tests only) | Mac |
 | `make ci-linux` | What CI runs on Linux: `test`, plus checks of the app's own | Linux |
 | `make ci-macos` | What CI runs on the Mac: `test`, `build`, `test-app`, plus checks of the app's own | Mac |
 | `make update-apple-ci` | Replaces `.apple-ci/apple.mk` with apple-ci's current copy | anywhere |

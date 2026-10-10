@@ -84,3 +84,18 @@ jobs:
         run: |
           make -s -C fixture > "$RUNNER_TEMP/default-goal.txt"
           head -1 "$RUNNER_TEMP/default-goal.txt" | grep '^make test'
+
+  test-failures:
+    name: make test-app says why a test failed
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - run: brew install xcodegen
+      - name: A failing test's message is in the output
+        working-directory: fixture
+        run: |
+          if TEST_RUNNER_HELLO_FAIL=1 make test-app > "$RUNNER_TEMP/test-app.txt" 2>&1; then
+            echo "the test should have failed"; exit 1
+          fi
+          tail -40 "$RUNNER_TEMP/test-app.txt"
+          grep -q "failed on purpose for apple-ci's self-test" "$RUNNER_TEMP/test-app.txt"
