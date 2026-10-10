@@ -5,6 +5,7 @@ name: Self-test
 on:
   push:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
 
 concurrency:
