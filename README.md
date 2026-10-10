@@ -161,7 +161,6 @@ Every j23n repository's CLAUDE.md starts with the same shared rules, and the app
 | --- | --- | --- |
 | `claude/j23n.md` | `.apple-ci/claude/j23n.md` | Every repository: language (US English), commits, branches, issues, pull requests, secrets |
 | `claude/apps.md` | `.apple-ci/claude/apps.md` (apps only) | The apps: `make` and CI, the generated project, Swift, signing, FeedbackKit, issues from feedback, Claude on GitHub |
-| `claude/link-pr.sh` | `.apple-ci/claude/link-pr.sh` | Links a pull request to the issue it finishes, and checks the link |
 | `claude/pull_request_template.md` | `.github/pull_request_template.md` | The pull request description's three sections |
 
 CLAUDE.md can only import files inside its repository, and Claude on GitHub and in cloud sessions sees only the checkout, so each repository keeps copies, as it does of `apple.mk`. Don't edit them: change the files here, then refresh the copies.
@@ -169,5 +168,3 @@ CLAUDE.md can only import files inside its repository, and Claude on GitHub and 
 - **In an app:** `make update-apple-ci` refreshes `apple.mk` and the Claude files, `apps.md` included.
 - **In any other repository** (feedback, feedbackkit): run `curl -fsSL https://raw.githubusercontent.com/j23n/apple-ci/main/claude/update.sh | sh`.
 - **Checking:** `… | sh -s -- --check` says which copies differ from apple-ci's. The Linux workflow runs it and warns.
-
-Claude on GitHub runs `link-pr.sh` too, so each app's `claude.yml` allows it next to `gh pr create`. `claude/test-link-pr.sh` tests it with a stand-in for `gh`.

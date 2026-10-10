@@ -20,7 +20,6 @@ done
 
 # Each line: the file in apple-ci, then where the repository keeps its copy.
 files="claude/j23n.md .apple-ci/claude/j23n.md
-claude/link-pr.sh .apple-ci/claude/link-pr.sh
 claude/pull_request_template.md .github/pull_request_template.md"
 if $apps || { $check && [ -f .apple-ci/claude/apps.md ]; }; then
   files="$files
@@ -49,6 +48,7 @@ if $check; then
   [ "$stale" -eq 0 ] || { echo "Refresh them with make update-apple-ci (or claude/update.sh)."; exit 1; }
   echo "The shared Claude instructions are current."
 else
-  chmod +x .apple-ci/claude/link-pr.sh
+  # No longer shared: copies an earlier update.sh made.
+  rm -f .apple-ci/claude/link-pr.sh
   echo "Updated: $(printf '%s\n' "$files" | awk '{print $2}' | tr '\n' ' ')"
 fi

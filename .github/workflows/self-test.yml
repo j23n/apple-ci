@@ -73,15 +73,15 @@ jobs:
           repo="$PWD"
           export APPLE_CI_RAW="file://$repo"
           mkdir "$RUNNER_TEMP/app" && cd "$RUNNER_TEMP/app"
+          # A copy of a file that's no longer shared goes.
+          mkdir -p .apple-ci/claude && touch .apple-ci/claude/link-pr.sh
           sh "$repo/claude/update.sh" apps
-          test -x .apple-ci/claude/link-pr.sh
-          for file in j23n.md apps.md link-pr.sh; do cmp "$repo/claude/$file" ".apple-ci/claude/$file"; done
+          test ! -e .apple-ci/claude/link-pr.sh
+          for file in j23n.md apps.md; do cmp "$repo/claude/$file" ".apple-ci/claude/$file"; done
           cmp "$repo/claude/pull_request_template.md" .github/pull_request_template.md
           sh "$repo/claude/update.sh" --check
           echo "An edit" >> .apple-ci/claude/apps.md
           if sh "$repo/claude/update.sh" --check; then echo "--check missed the edit"; exit 1; fi
-      - name: link-pr.sh links and checks, with a stand-in for gh
-        run: sh claude/test-link-pr.sh
 
   apple-mk:
     name: Fixture's apple.mk is current
