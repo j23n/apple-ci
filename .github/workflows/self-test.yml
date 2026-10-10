@@ -117,6 +117,10 @@ jobs:
           rm Signing.xcconfig
           J23N_TEAM=CCCC333333 make signing
           grep -qx 'DEVELOPMENT_TEAM = CCCC333333' Signing.xcconfig
+      - name: An agent's session can't write it
+        run: |
+          if CLAUDECODE=1 make signing TEAM=DDDD444444; then echo "make signing ran in an agent's session"; exit 1; fi
+          grep -qx 'DEVELOPMENT_TEAM = CCCC333333' Signing.xcconfig
 
   build-number:
     name: The build number is the number of commits

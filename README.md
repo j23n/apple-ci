@@ -57,6 +57,7 @@ Your Apple Developer team lives in `Signing.xcconfig` at the app's root. Git ign
 
 - **Once per clone:** `make signing TEAM=ABCDE12345`. It writes the team and keeps whatever else the file holds (maestro's signed entitlements, say).
 - **Once per Mac:** put `export J23N_TEAM=ABCDE12345` in your shell's profile. `make project` then writes `Signing.xcconfig` wherever it's missing, in every app.
+- **Never by an agent.** In a Claude Code session (`CLAUDECODE` is set) `make signing` refuses and `make project` doesn't write the file, so an agent never sees your team.
 - **Not in Xcode's Signing & Capabilities.** A team picked there goes into the generated project, which the next `xcodegen` replaces.
 - **How an app includes it:** the `.xcconfig` that every configuration uses (the project's, or the target's) ends with `#include? "<path to the root>/Signing.xcconfig"`, and no target in `project.yml` sets `DEVELOPMENT_TEAM` itself, since a target's own setting would win over the file. The `?` makes the file optional: CI and agents have none, and build unsigned. The fixture's `Config/Project.xcconfig` is the example.
 - **Files from before:** an app lists where it used to keep these settings in `SIGNING_OLD`, and `make project` warns while such a file still exists.
