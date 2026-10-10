@@ -93,6 +93,12 @@ jobs:
           if ! curl -fsSL https://raw.githubusercontent.com/j23n/apple-ci/main/make/apple.mk | diff -q - .apple-ci/apple.mk >/dev/null; then
             echo "::warning::.apple-ci/apple.mk differs from j23n/apple-ci's make/apple.mk: run make update-apple-ci"
           fi
+      - name: Are the app's shared Claude instructions current?
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          [ -d .apple-ci/claude ] || exit 0
+          curl -fsSL https://raw.githubusercontent.com/j23n/apple-ci/main/claude/update.sh | sh -s -- --check ||
+            echo "::warning::.apple-ci/claude differs from j23n/apple-ci's claude/: run make update-apple-ci"
       - name: ${{ inputs.run }}
         working-directory: ${{ inputs.working-directory }}
         run: ${{ inputs.run }}

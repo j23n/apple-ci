@@ -63,6 +63,26 @@ jobs:
       xcode-missing: skip
       run: exit 1
 
+  claude:
+    name: Shared Claude instructions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: update.sh copies them, and --check notices a changed copy
+        run: |
+          repo="$PWD"
+          export APPLE_CI_RAW="file://$repo"
+          mkdir "$RUNNER_TEMP/app" && cd "$RUNNER_TEMP/app"
+          sh "$repo/claude/update.sh" apps
+          test -x .apple-ci/claude/link-pr.sh
+          for file in j23n.md apps.md link-pr.sh; do cmp "$repo/claude/$file" ".apple-ci/claude/$file"; done
+          cmp "$repo/claude/pull_request_template.md" .github/pull_request_template.md
+          sh "$repo/claude/update.sh" --check
+          echo "An edit" >> .apple-ci/claude/apps.md
+          if sh "$repo/claude/update.sh" --check; then echo "--check missed the edit"; exit 1; fi
+      - name: link-pr.sh links and checks, with a stand-in for gh
+        run: sh claude/test-link-pr.sh
+
   apple-mk:
     name: Fixture's apple.mk is current
     runs-on: ubuntu-latest

@@ -6,6 +6,7 @@ The build and CI setup j23n's Apple apps share: [caniretireyet](https://github.c
 - **`make/apple.mk`:** the rules the Makefiles share, which each app keeps a copy of.
 - **Two reusable workflows:** `linux.yml` and `macos.yml`. An app's CI calls them, and they run `make ci-linux` and `make ci-macos`.
 - **`actions/select-xcode`:** picks an installed Xcode by version, or fails with a list of what the runner has.
+- **Shared Claude instructions** in `claude/`: the rules every j23n repository's CLAUDE.md imports, and the ones the apps add (below).
 
 ## The build contract
 
@@ -100,3 +101,30 @@ A slower job, such as UI tests with screenshots, is a second `macos.yml` call wi
 **Cost:** the hosted runners are free for public repositories. A private one spends its plan's included minutes (2,000 a month on GitHub Free), where a macOS minute counts ten times and every job is rounded up to a whole minute, so a macOS job that only finds its Xcode missing still costs ten minutes. In a private repository, run the Linux job on every push and the macOS jobs only where they're worth it (pushes to `main`, pull requests), and turn a job off with an `if:` on the calling job, which starts no runner, rather than with `xcode-missing: skip`, which does. maestro's CI does both, with a repository variable (`HOSTED_XCODE_27`) for the Xcode it waits for.
 
 **Self-test:** apple-ci's own CI runs both workflows on the fixture and tests the Xcode selector, so a change here is checked before the apps pick it up from `main`.
+
+## Claude
+
+Every j23n repository's CLAUDE.md starts with the same shared rules, and the apps add a second layer. The repository's own CLAUDE.md follows them, and only holds what's specific to it:
+
+```markdown
+@.apple-ci/claude/j23n.md
+@.apple-ci/claude/apps.md
+
+# The app
+…
+```
+
+| File here | Copy in each repository | What it holds |
+| --- | --- | --- |
+| `claude/j23n.md` | `.apple-ci/claude/j23n.md` | Every repository: language (US English), commits, branches, issues, pull requests, secrets |
+| `claude/apps.md` | `.apple-ci/claude/apps.md` (apps only) | The apps: `make` and CI, the generated project, Swift, signing, FeedbackKit, issues from feedback, Claude on GitHub |
+| `claude/link-pr.sh` | `.apple-ci/claude/link-pr.sh` | Links a pull request to the issue it finishes, and checks the link |
+| `claude/pull_request_template.md` | `.github/pull_request_template.md` | The pull request description's three sections |
+
+CLAUDE.md can only import files inside its repository, and Claude on GitHub and in cloud sessions sees only the checkout, so each repository keeps copies, as it does of `apple.mk`. Don't edit them: change the files here, then refresh the copies.
+
+- **In an app:** `make update-apple-ci` refreshes `apple.mk` and the Claude files, `apps.md` included.
+- **In any other repository** (feedback, feedbackkit): run `curl -fsSL https://raw.githubusercontent.com/j23n/apple-ci/main/claude/update.sh | sh`.
+- **Checking:** `… | sh -s -- --check` says which copies differ from apple-ci's. The Linux workflow runs it and warns.
+
+Claude on GitHub runs `link-pr.sh` too, so each app's `claude.yml` allows it next to `gh pr create`. `claude/test-link-pr.sh` tests it with a stand-in for `gh`.
