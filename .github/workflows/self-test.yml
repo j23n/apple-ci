@@ -88,7 +88,59 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - run: diff -u make/apple.mk fixture/.apple-ci/apple.mk
+      - run: |
+          diff -u make/apple.mk fixture/.apple-ci/apple.mk
+          diff -u make/build-number.sh fixture/.apple-ci/build-number.sh
+
+  signing:
+    name: make signing writes the team and keeps the rest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fixture
+    steps:
+      - uses: actions/checkout@v5
+      - name: Without a team it says how
+        run: |
+          if make signing 2>&1; then echo "make signing ran without a team"; exit 1; fi
+      - name: It writes the team, replaces it, and keeps other settings
+        run: |
+          make signing TEAM=AAAA111111
+          echo "OTHER_SETTING = 1" >> Signing.xcconfig
+          make signing TEAM=BBBB222222
+          cat Signing.xcconfig
+          test "$(grep -c '^DEVELOPMENT_TEAM' Signing.xcconfig)" = 1
+          grep -qx 'DEVELOPMENT_TEAM = BBBB222222' Signing.xcconfig
+          grep -qx 'OTHER_SETTING = 1' Signing.xcconfig
+      - name: J23N_TEAM is the default team
+        run: |
+          rm Signing.xcconfig
+          J23N_TEAM=CCCC333333 make signing
+          grep -qx 'DEVELOPMENT_TEAM = CCCC333333' Signing.xcconfig
+
+  build-number:
+    name: The build number is the number of commits
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: fixture
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Build the fixture
+        run: |
+          command -v xcodegen >/dev/null || brew install xcodegen
+          make build
+      - name: Each product's CFBundleVersion is git rev-list --count HEAD
+        run: |
+          expected=$(make -s build-number)
+          for plist in .build/DerivedData/Build/Products/Debug-iphonesimulator/Hello.app/Info.plist \
+                       .build/DerivedData/Build/Products/Debug/Hello.app/Contents/Info.plist; do
+            actual=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")
+            echo "$plist: $actual (expected $expected)"
+            test "$actual" = "$expected"
+          done
 
   default-goal:
     name: make alone runs the app's first rule (${{ matrix.os }})

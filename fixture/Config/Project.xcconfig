@@ -1,0 +1,7 @@
+// Every target and configuration of the project, under project.yml's own settings. The owner's signing
+// settings come from Signing.xcconfig at the root, which git ignores and XcodeGen never rewrites
+// (make signing TEAM=…; apple-ci README.md, "Signing"). Without it the project has no team, as in CI.
+
+DEVELOPMENT_TEAM =
+
+#include? "../Signing.xcconfig"

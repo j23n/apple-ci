@@ -1,2 +1,3 @@
+Hello.xcodeproj/
 .build/
-*.xcodeproj
+Signing.xcconfig

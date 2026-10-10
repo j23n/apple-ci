@@ -10,7 +10,7 @@ The build and CI setup j23n's Apple apps share: [caniretireyet](https://github.c
 
 ## The build contract
 
-- **The project is generated.** The Xcode project comes from an XcodeGen spec (`project.yml`) and is gitignored. Build settings live in the spec or in its `.xcconfig` files, and sources are synchronized folders.
+- **The project is generated.** The Xcode project comes from an XcodeGen spec, `project.yml` at the repository's root, so `xcodegen` there (or `make project`) writes it, next to the spec; it's gitignored. Build settings live in the spec or in its `.xcconfig` files, and sources are synchronized folders.
 - **`make` is the interface.** Contributors, agents and CI run the same commands, so CI is a `make` call:
 
 | Target | What it does | Where |
@@ -22,11 +22,13 @@ The build and CI setup j23n's Apple apps share: [caniretireyet](https://github.c
 | `make test-app` | The app's own tests in the iOS Simulator or on the Mac; when one fails, the failures with their messages (from the result bundle in `.build/TestResults`, since `-quiet` names the failing tests only) | Mac |
 | `make ci-linux` | What CI runs on Linux: `test`, plus checks of the app's own | Linux |
 | `make ci-macos` | What CI runs on the Mac: `test`, `build`, `test-app`, plus checks of the app's own | Mac |
-| `make update-apple-ci` | Replaces `.apple-ci/apple.mk` with apple-ci's current copy | anywhere |
+| `make signing TEAM=…` | Writes your Apple Developer team into `Signing.xcconfig` (gitignored; "Signing" below) | anywhere |
+| `make build-number` | Prints the build number the next build gets: the number of commits on `HEAD` ("Build numbers" below) | anywhere |
+| `make update-apple-ci` | Replaces `.apple-ci/` (`apple.mk`, `build-number.sh`, the shared Claude instructions) with apple-ci's current copies | anywhere |
 
 An app adds its own targets next to these, such as `make screenshots`, maestro's content pipeline or omnomnom's food database.
 
-- **Builds are unsigned:** `CODE_SIGNING_ALLOWED=NO`. Mac tests are signed to run locally without a team. Teams, bundle IDs and signing stay with the owner, in gitignored local `.xcconfig` files.
+- **Builds are unsigned:** `CODE_SIGNING_ALLOWED=NO`. Mac tests are signed to run locally without a team. The owner's team stays out of git, in `Signing.xcconfig` ("Signing" below).
 - **In-app feedback** ([FeedbackKit](https://github.com/j23n/feedbackkit)) is compiled in only in Debug builds, behind the `FEEDBACK` compilation condition.
 
 ## The Makefile
@@ -48,6 +50,37 @@ ci-macos: test build test-app
 ```
 
 `.apple-ci/apple.mk` is a copy of [make/apple.mk](make/apple.mk); its header lists the settings an app can change, such as `TEST_APP_PLATFORMS`, `TEST_APP_FLAGS`, `PROJECT_PREREQUISITES` and `IOS_SIMULATOR`. Don't edit the copy. Change it here, then run `make update-apple-ci` in each app. The Linux workflow warns when an app's copy differs from apple-ci's. It's GNU Make 3.81 compatible, since that's the version macOS ships. [fixture/](fixture) is a working example.
+
+## Signing
+
+Your Apple Developer team lives in `Signing.xcconfig` at the app's root. Git ignores it, XcodeGen never writes it, and every configuration of every target includes it last, so pulling, switching branches and regenerating the project all keep your team, and nothing you'd have to revert ever changes.
+
+- **Once per clone:** `make signing TEAM=ABCDE12345`. It writes the team and keeps whatever else the file holds (maestro's signed entitlements, say).
+- **Once per Mac:** put `export J23N_TEAM=ABCDE12345` in your shell's profile. `make project` then writes `Signing.xcconfig` wherever it's missing, in every app.
+- **Not in Xcode's Signing & Capabilities.** A team picked there goes into the generated project, which the next `xcodegen` replaces.
+- **How an app includes it:** the `.xcconfig` that every configuration uses (the project's, or the target's) ends with `#include? "<path to the root>/Signing.xcconfig"`, and no target in `project.yml` sets `DEVELOPMENT_TEAM` itself, since a target's own setting would win over the file. The `?` makes the file optional: CI and agents have none, and build unsigned. The fixture's `Config/Project.xcconfig` is the example.
+- **Files from before:** an app lists where it used to keep these settings in `SIGNING_OLD`, and `make project` warns while such a file still exists.
+
+## Build numbers
+
+Every build's build number (`CFBundleVersion`) is the number of commits on `HEAD`, so each later commit builds with a higher one, in Xcode, from `make` and in an archive for TestFlight alike. `make build-number` prints it.
+
+- **How:** `.apple-ci/build-number.sh` (a copy of `make/build-number.sh`) runs as the last build phase of every target that ships a bundle (the app and its extensions, which App Store Connect requires to share the app's build number). It sets `CFBundleVersion` in the product's Info.plist with `git rev-list --count HEAD`. `MARKETING_VERSION` stays the version people see.
+- **In project.yml,** on each such target:
+
+  ```yaml
+      settings:
+        base:
+          ENABLE_USER_SCRIPT_SANDBOXING: "NO"   # the script reads .git
+      postBuildScripts:
+        - name: Build number
+          script: '"$SRCROOT/.apple-ci/build-number.sh"'
+          inputFiles:
+            - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)   # runs it after Xcode writes the Info.plist
+          basedOnDependencyAnalysis: false            # on every build
+  ```
+- **Archive from `main`.** A branch counts its own commits, so its number can match one `main` gets later. CI's shallow checkouts count only the commits they have, which doesn't matter for builds nobody uploads.
+- Without git history the script leaves the number as the project sets it, with a warning.
 
 ## CI
 
