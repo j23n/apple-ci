@@ -79,6 +79,7 @@ jobs:
 | --- | --- |
 | `runner` | `macos-26` |
 | `xcode` | `default` (the runner's) |
+| `xcode-missing` | `fail` |
 | `run` | `make ci-macos` |
 | `brew` | `xcodegen` |
 | `uv` | `false` |
@@ -93,6 +94,7 @@ A slower job, such as UI tests with screenshots, is a second `macos.yml` call wi
 - Linux: Swift 6.3, the Swift of the macOS runner's default Xcode.
 - macOS: the `macos-26` runner's default Xcode, 26.6 in October 2026.
 - A job can pin a version (`xcode: "26.4"`), and fails, listing the installed Xcodes, if the runner doesn't have it. The *Runner inventory* workflow lists what the runners have.
+- An app that needs an Xcode the hosted runners don't have yet, such as one built against the iOS 27 SDK, can ask for it with `xcode-missing: skip`. The job then passes with a warning and a note in its summary instead of running, and runs by itself once the runners have that Xcode.
 - Moving every app to a new Xcode or Swift is a change of the defaults here.
 
 **Self-test:** apple-ci's own CI runs both workflows on the fixture and tests the Xcode selector, so a change here is checked before the apps pick it up from `main`.

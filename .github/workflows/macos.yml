@@ -26,6 +26,13 @@ on:
           job fails, listing what's installed, when the runner doesn't have it.
         type: string
         default: default
+      xcode-missing:
+        description: >-
+          What to do when the runner doesn't have that Xcode: "fail", or "skip", which passes
+          with a warning without running anything, for an app that needs an Xcode the hosted
+          runners don't have yet. It runs again by itself once they do.
+        type: string
+        default: fail
       run:
         description: The command to run.
         type: string
@@ -74,26 +81,36 @@ jobs:
         with:
           lfs: ${{ inputs.lfs }}
       - name: Xcode
+        id: xcode
         uses: j23n/apple-ci/actions/select-xcode@main
         with:
           version: ${{ inputs.xcode }}
+          if-missing: ${{ inputs.xcode-missing }}
+      - name: Skipped
+        if: steps.xcode.outputs.available != 'true'
+        env:
+          WANTED: ${{ inputs.xcode }}
+        run: |
+          echo "### Skipped: this runner doesn't have Xcode $WANTED" >> "$GITHUB_STEP_SUMMARY"
+          echo "The job runs again by itself once the hosted runners have it." >> "$GITHUB_STEP_SUMMARY"
       - name: Tools
-        if: inputs.brew != ''
+        if: steps.xcode.outputs.available == 'true' && inputs.brew != ''
         env:
           FORMULAE: ${{ inputs.brew }}
         # shellcheck disable=SC2086
         run: brew install $FORMULAE
       - name: uv
-        if: inputs.uv
+        if: steps.xcode.outputs.available == 'true' && inputs.uv
         uses: astral-sh/setup-uv@v6
       - name: Let UI tests drive the Mac
-        if: inputs.ui-automation
+        if: steps.xcode.outputs.available == 'true' && inputs.ui-automation
         run: sudo automationmodetool enable-automationmode-without-authentication || true
       - name: ${{ inputs.run }}
+        if: steps.xcode.outputs.available == 'true'
         working-directory: ${{ inputs.working-directory }}
         run: ${{ inputs.run }}
       - name: Keep ${{ inputs.artifact-name }}
-        if: (success() || failure()) && inputs.artifact-name != ''
+        if: (success() || failure()) && steps.xcode.outputs.available == 'true' && inputs.artifact-name != ''
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.artifact-name }}

@@ -43,6 +43,25 @@ jobs:
       - name: A missing version fails
         run: |
           if python3 actions/select-xcode/select_xcode.py 99; then echo "Xcode 99 shouldn't exist"; exit 1; fi
+      - name: A missing version can be skipped
+        id: skipped
+        uses: ./actions/select-xcode
+        with:
+          version: "99"
+          if-missing: skip
+      - name: Check it
+        env:
+          AVAILABLE: ${{ steps.skipped.outputs.available }}
+        run: test "$AVAILABLE" = false
+
+  skipped-job:
+    uses: ./.github/workflows/macos.yml
+    with:
+      name: macOS · a missing Xcode skips
+      working-directory: fixture
+      xcode: "99"
+      xcode-missing: skip
+      run: exit 1
 
   apple-mk:
     name: Fixture's apple.mk is current

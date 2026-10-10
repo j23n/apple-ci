@@ -6,7 +6,15 @@ inputs:
   version:
     description: An Xcode version or its prefix ("26.6", "26"), or "default".
     default: default
+  if-missing:
+    description: >-
+      "fail" (the default) or "skip": with "skip", a version the runner doesn't have is a warning,
+      and the `available` output is false.
+    default: fail
 outputs:
+  available:
+    description: Whether the version was found and selected ("true" or "false").
+    value: ${{ steps.select.outputs.available }}
   path:
     description: The selected Xcode's path.
     value: ${{ steps.select.outputs.path }}
@@ -20,4 +28,10 @@ runs:
       shell: bash
       env:
         WANTED: ${{ inputs.version }}
-      run: python3 "${{ github.action_path }}/select_xcode.py" "$WANTED"
+        IF_MISSING: ${{ inputs.if-missing }}
+      run: |
+        if [ "$IF_MISSING" = skip ]; then
+          python3 "${{ github.action_path }}/select_xcode.py" "$WANTED" --allow-missing
+        else
+          python3 "${{ github.action_path }}/select_xcode.py" "$WANTED"
+        fi
