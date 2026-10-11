@@ -2,10 +2,10 @@
 # a package), and the Xcode selector picks a version and refuses one the runner doesn't have.
 name: Self-test
 
+# One run per commit, its push's: a pull request here starts no run of its own (README.md, "When CI
+# runs"). The apps' pull requests test the ci:mac label.
 on:
   push:
-  pull_request:
-    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
 
 concurrency:

@@ -125,13 +125,14 @@ jobs:
 
 A slower job, such as UI tests with screenshots, is a second `macos.yml` call with its own `run` and artifact.
 
-**When CI runs:** Linux once per commit, and macOS only when it's asked for. An app's `ci.yml` triggers on `push`, `pull_request` (with `labeled` among its types) and `workflow_dispatch`, and the workflows decide:
+**When CI runs:** Linux once per commit, and macOS only when it's asked for. An app's `ci.yml` triggers on `push`, on `pull_request` only when it's `labeled`, and on `workflow_dispatch`, and the workflows decide:
 
 | | Push to `main` | Push to another branch | Pull request from a branch here | Pull request from a fork | Run by hand |
 | --- | --- | --- | --- | --- | --- |
-| `linux.yml` | runs | runs | skipped: the push ran it | runs | runs |
+| `linux.yml` | runs | runs | skipped: the push runs it | runs when it's labeled `ci:mac` | runs |
 | `macos.yml` | runs | skipped | runs when it's labeled `ci:mac` | runs when it's labeled `ci:mac` | runs |
 
+- **One run per commit.** A pull request's commits are tested by their pushes, so opening a pull request or pushing to it starts no run of its own: its checks show one CI run per commit, and another only when it's labeled. A pull request from a fork has no push here, so it's tested once it's labeled `ci:mac`, Linux and the Mac together.
 - **On a pull request, the review agent decides.** `claude-review.yml` adds the `ci:mac` label when its verdict is pass and the diff touches what only the Mac builds (the app's Swift, `project.yml`, `.xcconfig` files, entitlements, resources, the app's tests). The label's `labeled` event runs the Mac's jobs once, on the pull request's current head. A later push doesn't run them again; the next review relabels it when it's worth it. You can add the label yourself, or run the workflow by hand on any branch (Actions › CI › Run workflow).
 - **`main` always gets the Mac,** on every push, so a merge is built and tested there.
 - A skipped job starts no runner. The pull request's merge result isn't tested on Linux, only its branch's last commit.
@@ -146,7 +147,7 @@ A slower job, such as UI tests with screenshots, is a second `macos.yml` call wi
 
 **Cost:** the hosted runners are free for public repositories. A private one spends its plan's included minutes (2,000 a month on GitHub Free), where a macOS minute counts ten times and every job is rounded up to a whole minute, so a macOS job that only finds its Xcode missing still costs ten minutes. The workflows run macOS only on `main` and when asked for ("When CI runs"). To turn a job off, use an `if:` on the calling job, which starts no runner, rather than `xcode-missing: skip`, which does: maestro and omnomnom gate their Xcode 27 jobs on a repository variable, `HOSTED_XCODE_27`, until the runners have it.
 
-**Self-test:** apple-ci's own CI runs both workflows on the fixture and tests the Xcode selector, so a change here is checked before the apps pick it up from `main`.
+**Self-test:** apple-ci's own CI runs both workflows on the fixture and tests the Xcode selector, so a change here is checked before the apps pick it up from `main`. It runs on every push and by hand, and not again on a pull request.
 
 ## Claude
 

@@ -9,7 +9,7 @@
 # Builds are unsigned (CODE_SIGNING_ALLOWED=NO) or signed to run locally: the Makefile decides.
 # It runs on pushes to the default branch, manual runs, and a pull request when it's given the
 # `ci:mac` label, which the review agent adds when it judges the Mac's build is needed (README.md,
-# "When CI runs"). The app's ci.yml lists `labeled` among its pull_request types.
+# "When CI runs"). The app's ci.yml triggers on a pull request only when it's `labeled`.
 name: macOS
 
 on:
