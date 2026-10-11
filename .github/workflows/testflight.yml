@@ -5,7 +5,9 @@
 #   jobs:
 #     testflight:
 #       uses: j23n/apple-ci/.github/workflows/testflight.yml@main
-#       secrets: inherit
+#       secrets:
+#         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+#         …and ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8 the same way
 #
 # templates/testflight.yml is a whole app's file. The app's repository holds the secrets
 # APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8 (the API key's .p8 file).
