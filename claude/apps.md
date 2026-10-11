@@ -22,7 +22,7 @@ These rules hold in j23n's Apple apps: caniretireyet, maestro, makeitrain and om
 
 ## Signing
 
-Builds are unsigned (`CODE_SIGNING_ALLOWED=NO`). Mac tests are signed to run locally, without a team. The team, the bundle IDs, iCloud containers and entitlements' identifiers belong to the owner:
+Builds are unsigned (`CODE_SIGNING_ALLOWED=NO`). Mac tests are signed to run locally, without a team. Only the TestFlight workflow signs with the team, from the owner's Actions secrets (apple-ci's README, "TestFlight"); agents never run it, `make archive` or `make testflight`, or push a release tag. The team, the bundle IDs, iCloud containers and entitlements' identifiers belong to the owner:
 
 - The owner's team is in `Signing.xcconfig` at the root, which git ignores (apple-ci's README, "Signing"). Never create, read or change it, and never put a team ID in `project.yml` or a tracked `.xcconfig`.
 - Never sign with a team or turn on automatic signing.

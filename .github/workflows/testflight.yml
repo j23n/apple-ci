@@ -1,0 +1,162 @@
+# TestFlight: an app's archives for each platform it runs on, signed with the owner's team and
+# uploaded to App Store Connect, where they appear in TestFlight (README.md, "TestFlight"). It runs
+# `make testflight` on a tag such as v1.2.0, whose version becomes the builds' MARKETING_VERSION.
+#
+#   jobs:
+#     testflight:
+#       uses: j23n/apple-ci/.github/workflows/testflight.yml@main
+#       secrets: inherit
+#
+# templates/testflight.yml is a whole app's file. The app's repository holds the secrets
+# APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8 (the API key's .p8 file).
+name: TestFlight
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: The job's name.
+        type: string
+        default: TestFlight
+      runner:
+        description: The GitHub-hosted macOS image.
+        type: string
+        default: macos-26
+      xcode:
+        description: An Xcode version or its prefix ("26.6", "26"), or "default" for the runner's own.
+        type: string
+        default: default
+      run:
+        description: The command to run.
+        type: string
+        default: make testflight
+      working-directory:
+        description: Where to run it.
+        type: string
+        default: .
+      brew:
+        description: Homebrew formulae to install.
+        type: string
+        default: xcodegen
+      upload:
+        description: >-
+          Upload the builds to App Store Connect. Off, the job archives, signs and exports them
+          without uploading, to check signing.
+        type: boolean
+        default: true
+      version:
+        description: >-
+          The builds' version (MARKETING_VERSION). Empty takes it from the tag (v1.2.0 is 1.2.0),
+          or, on a run that isn't a tag's, keeps the project's.
+        type: string
+        default: ""
+      timeout-minutes:
+        type: number
+        default: 60
+    secrets:
+      APPLE_TEAM_ID:
+        required: false
+      ASC_KEY_ID:
+        required: false
+      ASC_ISSUER_ID:
+        required: false
+      ASC_KEY_P8:
+        required: false
+
+jobs:
+  testflight:
+    name: ${{ inputs.name }}
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - name: Secrets
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          missing=""
+          for name in APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing Actions secrets:$missing (apple-ci README.md, \"TestFlight\")"
+            exit 1
+          fi
+      # The whole history: the build number is the number of commits (README.md, "Build numbers").
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      # A branch counts its own commits, so its build number can match one main gets later.
+      - name: From the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if ! git merge-base --is-ancestor HEAD "origin/$DEFAULT_BRANCH"; then
+            echo "::error::$(git rev-parse --short HEAD) isn't on $DEFAULT_BRANCH: tag or run from a commit on $DEFAULT_BRANCH"
+            exit 1
+          fi
+      - name: Version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version="$INPUT_VERSION"
+          if [ -z "$version" ] && [ "$REF_TYPE" = tag ]; then version="${REF_NAME#v}"; fi
+          if [ -n "$version" ] && ! [[ "$version" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+            echo "::error::\"$version\" isn't a version App Store Connect takes, such as 1.2 or 1.2.0"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Xcode
+        uses: j23n/apple-ci/actions/select-xcode@main
+        with:
+          version: ${{ inputs.xcode }}
+      - name: Tools
+        if: inputs.brew != ''
+        env:
+          FORMULAE: ${{ inputs.brew }}
+        # shellcheck disable=SC2086
+        run: brew install $FORMULAE
+      - name: App Store Connect key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          umask 077
+          mkdir -p "$RUNNER_TEMP/asc"
+          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/asc/AuthKey.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/asc/AuthKey.p8" >> "$GITHUB_ENV"
+      - name: ${{ inputs.run }}
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+          EXPORT_DESTINATION: ${{ inputs.upload && 'upload' || 'export' }}
+        run: ${{ inputs.run }}
+      - name: Summary
+        if: success()
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          UPLOAD: ${{ inputs.upload }}
+        run: |
+          {
+            if [ "$UPLOAD" = true ]; then
+              echo "### Uploaded to App Store Connect"
+              echo "The builds appear in TestFlight once App Store Connect has processed them."
+            else
+              echo "### Archived and signed, not uploaded"
+            fi
+            echo "Version: ${VERSION:-the project's}. Build: $(git rev-list --count HEAD)."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove the key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/asc"

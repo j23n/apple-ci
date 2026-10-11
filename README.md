@@ -4,7 +4,7 @@ The build and CI setup j23n's Apple apps share: [caniretireyet](https://github.c
 
 - **The build contract:** every app is an XcodeGen project with a Makefile that has the same targets (below).
 - **`make/apple.mk`:** the rules the Makefiles share, which each app keeps a copy of.
-- **Two reusable workflows:** `linux.yml` and `macos.yml`. An app's CI calls them, and they run `make ci-linux` and `make ci-macos`.
+- **Three reusable workflows:** `linux.yml` and `macos.yml`, which an app's CI calls to run `make ci-linux` and `make ci-macos`, and `testflight.yml`, which uploads a tag's builds to TestFlight with `make testflight`.
 - **`actions/select-xcode`:** picks an installed Xcode by version, or fails with a list of what the runner has.
 - **Shared Claude instructions** in `claude/`: the rules every j23n repository's CLAUDE.md imports, and the ones the apps add (below).
 
@@ -23,12 +23,14 @@ The build and CI setup j23n's Apple apps share: [caniretireyet](https://github.c
 | `make ci-linux` | What CI runs on Linux: `test`, plus checks of the app's own | Linux |
 | `make ci-macos` | What CI runs on the Mac: `test`, `build`, `test-app`, plus checks of the app's own | Mac |
 | `make signing TEAM=…` | Writes your Apple Developer team into `Signing.xcconfig` (gitignored; "Signing" below) | anywhere |
+| `make archive` | The app's Release archive for each platform, signed with your team ("TestFlight" below) | Mac |
+| `make testflight` | The archives, exported for App Store Connect and uploaded to TestFlight ("TestFlight" below) | Mac |
 | `make build-number` | Prints the build number the next build gets: the number of commits on `HEAD` ("Build numbers" below) | anywhere |
 | `make update-apple-ci` | Replaces `.apple-ci/` (`apple.mk`, `build-number.sh`, the shared Claude instructions) with apple-ci's current copies | anywhere |
 
 An app adds its own targets next to these, such as `make screenshots`, maestro's content pipeline or omnomnom's food database.
 
-- **Builds are unsigned:** `CODE_SIGNING_ALLOWED=NO`. Mac tests are signed to run locally without a team. The owner's team stays out of git, in `Signing.xcconfig` ("Signing" below).
+- **Builds are unsigned:** `CODE_SIGNING_ALLOWED=NO`, except the archives for TestFlight. Mac tests are signed to run locally without a team. The owner's team stays out of git, in `Signing.xcconfig` ("Signing" below).
 - **In-app feedback** ([FeedbackKit](https://github.com/j23n/feedbackkit)) is compiled in only in Debug builds, behind the `FEEDBACK` compilation condition.
 
 ## The Makefile
@@ -148,6 +150,19 @@ A slower job, such as UI tests with screenshots, is a second `macos.yml` call wi
 **Cost:** the hosted runners are free for public repositories. A private one spends its plan's included minutes (2,000 a month on GitHub Free), where a macOS minute counts ten times and every job is rounded up to a whole minute, so a macOS job that only finds its Xcode missing still costs ten minutes. The workflows run macOS only on `main` and when asked for ("When CI runs"). To turn a job off, use an `if:` on the calling job, which starts no runner, rather than `xcode-missing: skip`, which does: maestro and omnomnom gate their Xcode 27 jobs on a repository variable, `HOSTED_XCODE_27`, until the runners have it.
 
 **Self-test:** apple-ci's own CI runs both workflows on the fixture and tests the Xcode selector, so a change here is checked before the apps pick it up from `main`. It runs on every push and by hand, and not again on a pull request.
+
+## TestFlight
+
+Pushing a tag such as `v1.2.0` on a commit on `main` archives the app for each platform in `PLATFORMS`, signs it with your team and uploads it to App Store Connect, where it appears in TestFlight once Apple has processed it. The tag's version, `1.2.0`, becomes the builds' `MARKETING_VERSION`, and the build number is the number of commits, as always ("Build numbers" above). Submitting a build for App Store review stays a step you take in App Store Connect.
+
+- **The workflow:** [templates/testflight.yml](templates/testflight.yml) is the app's whole `.github/workflows/testflight.yml`. It calls `testflight.yml` here, which runs `make testflight` on the `macos-26` runner.
+- **Run by hand** (Actions › TestFlight › Run workflow), it archives, signs and exports without uploading, unless you tick "Upload". Do that first, to check signing.
+- **Signing:** an App Store Connect API key lets `xcodebuild -allowProvisioningUpdates` sign. The archive uses Xcode's automatic signing, which creates a development certificate and profiles for the runner; the export uses the distribution certificate Apple manages in the cloud. Nothing else is stored, and the archive's entitlements are printed in the log.
+- **Once per app, on your Mac:** create the app in App Store Connect (one record for iOS and macOS when the app runs on both), and archive it once from Xcode, so the App IDs of the app and its extensions, their iCloud containers and App Groups are registered. Your team needs a registered device for the development profile.
+- **Once per team:** in App Store Connect › Users and Access › Integrations, create a Team API key with the Admin role, which cloud-managed signing needs, and download its `.p8` file.
+- **Once per repository,** in Settings › Secrets and variables › Actions: `APPLE_TEAM_ID` (your team ID), `ASC_KEY_ID` and `ASC_ISSUER_ID` (from the key's page), and `ASC_KEY_P8` (the `.p8` file's contents). The job stops and names any that are missing.
+- **Only from `main`:** the job refuses a commit that isn't on the default branch, whose build number a later commit on `main` could repeat.
+- **Locally:** `make testflight` runs on your Mac with `TEAM` (or `J23N_TEAM`), `ASC_KEY_ID`, `ASC_ISSUER_ID` and `ASC_KEY_PATH` set; `APP_VERSION=1.2.0` sets the version, and `EXPORT_DESTINATION=export` writes the signed builds to `.build/Exports` instead of uploading them. Neither target runs in an agent's session.
 
 ## Claude
 

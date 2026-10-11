@@ -1,0 +1,37 @@
+# An app's TestFlight uploads (j23n/apple-ci, README.md "TestFlight"): pushing a tag such as v1.2.0
+# on a commit on main archives the app for each platform it runs on, signs it with the owner's team
+# and uploads it to App Store Connect, with 1.2.0 as its version. A run by hand (Actions ›
+# TestFlight › Run workflow) archives and signs without uploading, unless you ask it to upload.
+# Copy to .github/workflows/testflight.yml. It needs the Actions secrets APPLE_TEAM_ID, ASC_KEY_ID,
+# ASC_ISSUER_ID and ASC_KEY_P8.
+name: TestFlight
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload to App Store Connect
+        type: boolean
+        default: false
+      version:
+        description: The version, such as 1.2.0 (empty keeps the project's)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+# One upload at a time; a second tag waits rather than cancelling the first.
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    uses: j23n/apple-ci/.github/workflows/testflight.yml@main
+    with:
+      upload: ${{ github.event_name == 'push' || inputs.upload }}
+      version: ${{ inputs.version }}
+    secrets: inherit
