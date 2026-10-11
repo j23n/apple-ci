@@ -160,6 +160,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           UPLOAD: ${{ inputs.upload }}
         run: |
+          version="${VERSION:-unchanged}"
           {
             if [ "$UPLOAD" = true ]; then
               echo "### Uploaded to App Store Connect"
@@ -167,7 +168,7 @@ jobs:
             else
               echo "### Archived and signed, not uploaded"
             fi
-            echo "Version: ${VERSION:-the project's}. Build: $(git rev-list --count HEAD)."
+            echo "Version: $version. Build: $(git rev-list --count HEAD)."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Remove the key
         if: always()
