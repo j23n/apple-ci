@@ -5,7 +5,9 @@
 #   jobs:
 #     testflight:
 #       uses: j23n/apple-ci/.github/workflows/testflight.yml@main
-#       secrets: inherit
+#       secrets:
+#         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+#         …and ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8 the same way
 #
 # templates/testflight.yml is a whole app's file. The app's repository holds the secrets
 # APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8 (the API key's .p8 file).
@@ -72,6 +74,16 @@ jobs:
       HOMEBREW_NO_AUTO_UPDATE: "1"
       HOMEBREW_NO_INSTALL_CLEANUP: "1"
     steps:
+      # It signs with the owner's key, so only the owner starts it: a tag or a run by anyone else,
+      # a bot included, fails here before it reads a secret.
+      - name: Started by the owner
+        if: github.triggering_actor != github.repository_owner
+        env:
+          ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          echo "::error::$ACTOR started this run; only $OWNER can upload to TestFlight"
+          exit 1
       - name: Secrets
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

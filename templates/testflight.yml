@@ -23,9 +23,12 @@ on:
 permissions:
   contents: read
 
-# One upload at a time; a second tag waits rather than cancelling the first.
+# Tags upload one at a time: a tag's run waits for the one before it rather than cancelling it.
+# GitHub keeps only the newest waiting run of a group, so runs by hand have a group of their own and
+# can't replace a tag's. They can run alongside one, and App Store Connect rejects the second upload
+# of a commit's build number.
 concurrency:
-  group: testflight
+  group: testflight-${{ github.event_name }}
   cancel-in-progress: false
 
 jobs:
@@ -34,4 +37,9 @@ jobs:
     with:
       upload: ${{ github.event_name == 'push' || inputs.upload }}
       version: ${{ inputs.version }}
-    secrets: inherit
+    # Only the four it uses, not every secret of the repository.
+    secrets:
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
