@@ -129,11 +129,11 @@ A slower job, such as UI tests with screenshots, is a second `macos.yml` call wi
 
 | | Push to `main` | Push to another branch | Pull request from a branch here | Pull request from a fork | Run by hand |
 | --- | --- | --- | --- | --- | --- |
-| `linux.yml` | runs | runs | skipped: the push runs it | runs when it's labeled `ci:mac` | runs |
+| `linux.yml` | runs | runs | skipped: the push runs it | runs when it's labeled | runs |
 | `macos.yml` | runs | skipped | runs when it's labeled `ci:mac` | runs when it's labeled `ci:mac` | runs |
 
-- **One run per commit.** A pull request's commits are tested by their pushes, so opening a pull request or pushing to it starts no run of its own: its checks show one CI run per commit, and another only when it's labeled. A pull request from a fork has no push here, so it's tested once it's labeled `ci:mac`, Linux and the Mac together.
-- **On a pull request, the review agent decides.** `claude-review.yml` adds the `ci:mac` label when its verdict is pass and the diff touches what only the Mac builds (the app's Swift, `project.yml`, `.xcconfig` files, entitlements, resources, the app's tests). The label's `labeled` event runs the Mac's jobs once, on the pull request's current head. A later push doesn't run them again; the next review relabels it when it's worth it. You can add the label yourself, or run the workflow by hand on any branch (Actions › CI › Run workflow).
+- **One run per commit.** A pull request's commits are tested by their pushes, so opening a pull request or pushing to it starts no run of its own: its checks show one CI run per commit, and another only when it's labeled, where only `ci:mac` runs the Mac's jobs. A pull request from a fork has no push here, so it's tested once it's labeled: Linux for any label, and the Mac too for `ci:mac`.
+- **On a pull request, the review agent decides.** `claude-review.yml` adds the `ci:mac` label when its verdict is pass and the diff touches what only the Mac builds (the app's Swift, `project.yml`, `.xcconfig` files, entitlements, resources, the app's tests). The label's `labeled` event runs the Mac's jobs once, on the pull request's merge with its base at that moment. A later push doesn't run them again; the next review relabels it when it's worth it. You can add the label yourself, or run the workflow by hand on any branch (Actions › CI › Run workflow).
 - **`main` always gets the Mac,** on every push, so a merge is built and tested there.
 - A skipped job starts no runner. The pull request's merge result isn't tested on Linux, only its branch's last commit.
 - An app's `ci.yml` puts the label in its concurrency group (`ci-${{ github.ref }}-${{ github.event.label.name }}`), so adding another label to the pull request doesn't cancel the Mac's run. `pull-request-label` names another label.
