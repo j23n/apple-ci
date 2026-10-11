@@ -72,6 +72,16 @@ jobs:
       HOMEBREW_NO_AUTO_UPDATE: "1"
       HOMEBREW_NO_INSTALL_CLEANUP: "1"
     steps:
+      # It signs with the owner's key, so only the owner starts it: a tag or a run by anyone else,
+      # a bot included, fails here before it reads a secret.
+      - name: Started by the owner
+        if: github.triggering_actor != github.repository_owner
+        env:
+          ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          echo "::error::$ACTOR started this run; only $OWNER can upload to TestFlight"
+          exit 1
       - name: Secrets
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

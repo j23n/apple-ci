@@ -161,6 +161,7 @@ Pushing a tag such as `v1.2.0` on a commit on `main` archives the app for each p
 - **Once per app, on your Mac:** create the app in App Store Connect (one record for iOS and macOS when the app runs on both), and archive it once from Xcode, so the App IDs of the app and its extensions, their iCloud containers and App Groups are registered. Your team needs a registered device for the development profile.
 - **Once per team:** in App Store Connect › Users and Access › Integrations, create a Team API key with the Admin role, which cloud-managed signing needs, and download its `.p8` file.
 - **Once per repository,** in Settings › Secrets and variables › Actions: `APPLE_TEAM_ID` (your team ID), `ASC_KEY_ID` and `ASC_ISSUER_ID` (from the key's page), and `ASC_KEY_P8` (the `.p8` file's contents). The job stops and names any that are missing.
+- **Only by the owner:** the job fails unless the repository's owner pushed the tag or started the run, so a bot or a collaborator can't sign or upload with the key.
 - **Only from `main`:** the job refuses a commit that isn't on the default branch, whose build number a later commit on `main` could repeat.
 - **Locally:** `make testflight` runs on your Mac with `TEAM` (or `J23N_TEAM`), `ASC_KEY_ID`, `ASC_ISSUER_ID` and `ASC_KEY_PATH` set; `APP_VERSION=1.2.0` sets the version, and `EXPORT_DESTINATION=export` writes the signed builds to `.build/Exports` instead of uploading them. Neither target runs in an agent's session.
 
