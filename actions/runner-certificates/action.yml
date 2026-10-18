@@ -1,0 +1,25 @@
+name: Runner certificates
+description: >-
+  Revokes the development certificate that Xcode's automatic signing creates on a runner, so a
+  TestFlight job leaves none behind on the team. "record" notes the certificates the keychain holds
+  before signing; "revoke" revokes, through the App Store Connect API, the development certificates
+  the keychain gained since. It reads the key's file from ASC_KEY_PATH; a problem is a warning.
+inputs:
+  command:
+    description: '"record" before signing, or "revoke" after it.'
+    required: true
+  key-id:
+    description: The App Store Connect API key's ID, which "revoke" needs.
+    default: ""
+  issuer-id:
+    description: The App Store Connect API key's issuer ID, which "revoke" needs.
+    default: ""
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        COMMAND: ${{ inputs.command }}
+        ASC_KEY_ID: ${{ inputs.key-id }}
+        ASC_ISSUER_ID: ${{ inputs.issuer-id }}
+      run: python3 "${{ github.action_path }}/runner_certificates.py" "$COMMAND" --state "$RUNNER_TEMP/runner-certificates.txt"
