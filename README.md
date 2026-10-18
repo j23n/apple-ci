@@ -5,6 +5,7 @@ The build and CI setup j23n's Apple apps share: [caniretireyet](https://github.c
 - **The build contract:** every app is an XcodeGen project with a Makefile that has the same targets (below).
 - **`make/apple.mk`:** the rules the Makefiles share, which each app keeps a copy of.
 - **Three reusable workflows:** `linux.yml` and `macos.yml`, which an app's CI calls to run `make ci-linux` and `make ci-macos`, and `testflight.yml`, which uploads a tag's builds to TestFlight with `make testflight`.
+- **`actions/runner-certificates`:** revokes the development certificate a TestFlight job's signing created on its runner.
 - **`actions/select-xcode`:** picks an installed Xcode by version, or fails with a list of what the runner has.
 - **Shared Claude instructions** in `claude/`: the rules every j23n repository's CLAUDE.md imports, and the ones the apps add (below).
 
@@ -149,7 +150,7 @@ A slower job, such as UI tests with screenshots, is a second `macos.yml` call wi
 
 **Cost:** the hosted runners are free for public repositories. A private one spends its plan's included minutes (2,000 a month on GitHub Free), where a macOS minute counts ten times and every job is rounded up to a whole minute, so a macOS job that only finds its Xcode missing still costs ten minutes. The workflows run macOS only on `main` and when asked for ("When CI runs"). To turn a job off, use an `if:` on the calling job, which starts no runner, rather than `xcode-missing: skip`, which does: maestro and omnomnom gate their Xcode 27 jobs on a repository variable, `HOSTED_XCODE_27`, until the runners have it.
 
-**Self-test:** apple-ci's own CI runs both workflows on the fixture and tests the Xcode selector, so a change here is checked before the apps pick it up from `main`. It runs on every push and by hand, and not again on a pull request.
+**Self-test:** apple-ci's own CI runs both workflows on the fixture and tests the Xcode selector and the runner's certificates, so a change here is checked before the apps pick it up from `main`. It runs on every push and by hand, and not again on a pull request.
 
 ## TestFlight
 
@@ -158,6 +159,7 @@ Pushing a tag such as `v1.2.0` on a commit on `main` archives the app for each p
 - **The workflow:** [templates/testflight.yml](templates/testflight.yml) is the app's whole `.github/workflows/testflight.yml`. It calls `testflight.yml` here, which runs `make testflight` on the `macos-26` runner.
 - **Run by hand** (Actions › TestFlight › Run workflow), it archives, signs and exports without uploading, unless you tick "Upload". Do that first, to check signing.
 - **Signing:** an App Store Connect API key lets `xcodebuild -allowProvisioningUpdates` sign. The archive uses Xcode's automatic signing, which creates a development certificate and profiles for the runner; the export uses the distribution certificate Apple manages in the cloud. Nothing else is stored, and the archive's entitlements are printed in the log.
+- **The runner's certificate is revoked:** the runner's keychain goes with the runner, so each run would leave its development certificate on the team until Apple's limit stops the next archive. [actions/runner-certificates](actions/runner-certificates) notes the keychain's certificates before signing and, when the job ends, revokes through the API the development certificates it gained, whether the job passed or not. It never revokes a distribution certificate or one the keychain held before. When it can't, the run shows a warning, and old certificates named "Created via API" can be revoked by hand in the developer account's Certificates.
 - **Once per app, on your Mac:** create the app in App Store Connect (one record for iOS and macOS when the app runs on both), and archive it once from Xcode, so the App IDs of the app and its extensions, their iCloud containers and App Groups are registered. Your team needs a registered device for the development profile.
 - **Once per team:** in App Store Connect › Users and Access › Integrations, create a Team API key with the Admin role, which cloud-managed signing needs, and download its `.p8` file.
 - **Once per repository,** in Settings › Secrets and variables › Actions: `APPLE_TEAM_ID` (your team ID), `ASC_KEY_ID` and `ASC_ISSUER_ID` (from the key's page), and `ASC_KEY_P8` (the `.p8` file's contents). The job stops and names any that are missing.

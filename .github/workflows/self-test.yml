@@ -1,5 +1,6 @@
 # apple-ci tests itself: the shared workflows run on the fixture (an iPhone, iPad and Mac app with
-# a package), and the Xcode selector picks a version and refuses one the runner doesn't have.
+# a package), the Xcode selector picks a version and refuses one the runner doesn't have, and the
+# runner's certificates revoke only what the keychain gained.
 name: Self-test
 
 # One run per commit, its push's: a pull request here starts no run of its own (README.md, "When CI
@@ -54,6 +55,34 @@ jobs:
         env:
           AVAILABLE: ${{ steps.skipped.outputs.available }}
         run: test "$AVAILABLE" = false
+
+  runner-certificates-tests:
+    name: Runner certificates · tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - working-directory: actions/runner-certificates
+        run: python3 -m unittest -v
+
+  runner-certificates:
+    name: Runner certificates · a keychain that gained none revokes none
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - name: Record the keychain's certificates
+        uses: ./actions/runner-certificates
+        with:
+          command: record
+      # Without new certificates it calls no API, so it needs no key.
+      - name: Revoke what it gained
+        uses: ./actions/runner-certificates
+        with:
+          command: revoke
+      - name: Check it
+        run: |
+          python3 actions/runner-certificates/runner_certificates.py revoke \
+            --state "$RUNNER_TEMP/runner-certificates.txt" | tee "$RUNNER_TEMP/revoke.txt"
+          grep -q "gained no certificates" "$RUNNER_TEMP/revoke.txt"
 
   skipped-job:
     uses: ./.github/workflows/macos.yml

@@ -144,6 +144,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/asc"
           printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/asc/AuthKey.p8"
           echo "ASC_KEY_PATH=$RUNNER_TEMP/asc/AuthKey.p8" >> "$GITHUB_ENV"
+      # The archive's automatic signing creates a development certificate in the runner's keychain,
+      # which goes with the runner, so the job revokes it at the end (README.md, "TestFlight").
+      - name: Certificates before signing
+        id: certificates
+        uses: j23n/apple-ci/actions/runner-certificates@main
+        with:
+          command: record
       - name: ${{ inputs.run }}
         working-directory: ${{ inputs.working-directory }}
         env:
@@ -170,6 +177,13 @@ jobs:
             fi
             echo "Version: $version. Build: $(git rev-list --count HEAD)."
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Revoke the runner's development certificate
+        if: always() && steps.certificates.outcome == 'success'
+        uses: j23n/apple-ci/actions/runner-certificates@main
+        with:
+          command: revoke
+          key-id: ${{ secrets.ASC_KEY_ID }}
+          issuer-id: ${{ secrets.ASC_ISSUER_ID }}
       - name: Remove the key
         if: always()
         run: rm -rf "$RUNNER_TEMP/asc"
