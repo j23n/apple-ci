@@ -1,4 +1,4 @@
-# The Linux half of an app's CI: Swift in a pinned container, then one command, usually
+# The Linux half of an app's CI: a pinned Swift toolchain, then one command, usually
 # `make ci-linux` (README.md, "The build contract").
 # It runs once per commit: on pushes, not again on the pull request (README.md, "When CI runs").
 #
@@ -6,8 +6,9 @@
 #     linux:
 #       uses: j23n/apple-ci/.github/workflows/linux.yml@main
 #
-# The image is the official `swift:<version>-noble`, pulled from Amazon ECR Public's mirror of
-# Docker Hub's official images: Docker Hub's pull limit for GitHub's runners failed CI before.
+# Swift is swift.org's toolchain for Ubuntu 24.04, checked against its signature and cached per
+# version, installed on the runner itself. No container: Docker Hub's pull limit, then Amazon ECR
+# Public's data limit, failed these jobs before any step ran.
 name: Linux
 
 on:
@@ -18,7 +19,7 @@ on:
         type: string
         default: Linux
       swift:
-        description: The Swift version of the container (`swift:<version>-noble`).
+        description: The Swift version, a swift.org release such as 6.3 or 6.3.1.
         type: string
         default: "6.3"
       run:
@@ -63,9 +64,9 @@ jobs:
     # Runs on pushes, manual runs and pull requests from forks. A pull request from a branch of the
     # app's repository skips it, starting no runner: the push to that branch ran it on the same commit.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
-    runs-on: ubuntu-latest
+    # The toolchain's URL names the Ubuntu version, so the runner's is pinned.
+    runs-on: ubuntu-24.04
     timeout-minutes: ${{ inputs.timeout-minutes }}
-    container: public.ecr.aws/docker/library/swift:${{ inputs.swift }}-noble
     steps:
       - name: Tools
         env:
@@ -74,10 +75,39 @@ jobs:
         run: |
           extra="$PACKAGES"
           [ "$LFS" = true ] && extra="$extra git-lfs"
-          apt-get update -qq
+          sudo apt-get update -qq
+          # make, git and curl, then what swift.org lists for the toolchain on Ubuntu 24.04.
           # shellcheck disable=SC2086
-          apt-get install -y -qq --no-install-recommends make git curl ca-certificates $extra
-          swift --version
+          sudo apt-get install -y -qq --no-install-recommends make git curl ca-certificates gnupg2 \
+            binutils libc6-dev libcurl4-openssl-dev libedit2 libgcc-13-dev libncurses-dev \
+            libpython3-dev libsqlite3-0 libstdc++-13-dev libxml2-dev libz3-dev pkg-config tzdata \
+            unzip zlib1g-dev $extra
+      - name: Swift toolchain cache
+        id: swift-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/swift-toolchain
+          key: swift-${{ inputs.swift }}-ubuntu24.04-${{ runner.arch }}
+      - name: Swift
+        env:
+          SWIFT_VERSION: ${{ inputs.swift }}
+          CACHED: ${{ steps.swift-cache.outputs.cache-hit }}
+        run: |
+          dir="$HOME/swift-toolchain"
+          if [ "$CACHED" != true ]; then
+            name="swift-$SWIFT_VERSION-RELEASE"
+            url="https://download.swift.org/swift-$SWIFT_VERSION-release/ubuntu2404/$name/$name-ubuntu24.04.tar.gz"
+            cd "$RUNNER_TEMP"
+            curl -fsSL --retry 3 -o swift.tar.gz "$url"
+            curl -fsSL --retry 3 -o swift.tar.gz.sig "$url.sig"
+            curl -fsSL --retry 3 https://www.swift.org/keys/all-keys.asc | gpg --batch --quiet --import -
+            gpg --batch --verify swift.tar.gz.sig swift.tar.gz
+            mkdir -p "$dir"
+            tar -xzf swift.tar.gz -C "$dir" --strip-components=1
+            rm swift.tar.gz swift.tar.gz.sig
+          fi
+          echo "$dir/usr/bin" >> "$GITHUB_PATH"
+          "$dir/usr/bin/swift" --version
       - uses: actions/checkout@v5
         with:
           lfs: ${{ inputs.lfs }}

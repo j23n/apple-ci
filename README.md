@@ -98,7 +98,7 @@ jobs:
 
 [templates/ci.yml](templates/ci.yml) is the whole file. The inputs, with their defaults:
 
-**`linux.yml`** runs `make ci-linux` in `swift:<swift>-noble`. The image comes from Amazon ECR Public's mirror of Docker's official images, because Docker Hub's pull limit used to fail these jobs.
+**`linux.yml`** runs `make ci-linux` on an Ubuntu 24.04 runner with swift.org's toolchain for the `swift` version, checked against its signature and cached per version. It uses no container, because Docker Hub's pull limit and then Amazon ECR Public's data limit used to fail these jobs.
 
 | Input | Default |
 | --- | --- |
